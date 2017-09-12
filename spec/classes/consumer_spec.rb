@@ -1,9 +1,11 @@
 require 'spec_helper'
+require 'shared_examples_param_validation'
 
 describe 'kafka::consumer', type: :class do
   let :facts do
     {
       osfamily: 'Debian',
+      os: { family: 'Debian' },
       operatingsystem: 'Ubuntu',
       operatingsystemrelease: '14.04',
       lsbdistcodename: 'trusty',
@@ -12,13 +14,17 @@ describe 'kafka::consumer', type: :class do
     }
   end
 
-  let :params do
+  let :common_params do
     {
       service_config: {
         'topic'     => 'demo',
         'zookeeper' => 'localhost:2181'
       }
     }
+  end
+
+  let :params do
+    common_params
   end
 
   it { is_expected.to contain_class('kafka::consumer::install').that_comes_before('Class[kafka::consumer::service]') }
@@ -34,7 +40,7 @@ describe 'kafka::consumer', type: :class do
 
     describe 'kafka::consumer::service' do
       context 'defaults' do
-        it { is_expected.to contain_file('kafka-consumer.service') }
+        it { is_expected.to contain_file('/etc/init.d/kafka-consumer') }
 
         it { is_expected.to contain_service('kafka-consumer') }
       end
@@ -45,6 +51,7 @@ describe 'kafka::consumer', type: :class do
     let :facts do
       {
         osfamily: 'RedHat',
+        os: { family: 'RedHat' },
         operatingsystem: 'CentOS',
         operatingsystemrelease: '7',
         operatingsystemmajrelease: '7',
@@ -62,7 +69,9 @@ describe 'kafka::consumer', type: :class do
 
     describe 'kafka::consumer::service' do
       context 'defaults' do
-        it { is_expected.to contain_file('kafka-consumer.service').that_notifies('Exec[systemctl-daemon-reload]') }
+        it { is_expected.to contain_file('/etc/systemd/system/kafka-consumer.service').that_notifies('Exec[systemctl-daemon-reload]') }
+
+        it { is_expected.to contain_file('/etc/systemd/system/kafka-consumer.service').with_content %r{^LimitNOFILE=65536$} }
 
         it do
           is_expected.to contain_file('/etc/init.d/kafka-consumer').with(
@@ -74,6 +83,24 @@ describe 'kafka::consumer', type: :class do
 
         it { is_expected.to contain_service('kafka-consumer') }
       end
+
+      context 'service_requires_zookeeper disabled' do
+        let :params do
+          common_params.merge(service_requires_zookeeper: false)
+        end
+
+        it { is_expected.not_to contain_file('/etc/systemd/system/kafka-consumer.service').with_content %r{^Requires=zookeeper.service$} }
+      end
+
+      context 'service_requires_zookeeper enabled' do
+        let :params do
+          common_params.merge(service_requires_zookeeper: true)
+        end
+
+        it { is_expected.to contain_file('/etc/systemd/system/kafka-consumer.service').with_content %r{^Requires=zookeeper.service$} }
+      end
     end
   end
+
+  it_validates_parameter 'mirror_url'
 end

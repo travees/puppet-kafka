@@ -8,22 +8,40 @@
 # It sets variables according to platform
 #
 class kafka::params {
+
+  # this is all only tested on Debian and RedHat
+  # params gets included everywhere so we can do the validation here
+  unless $facts['os']['family'] =~ /(RedHat|Debian)/ {
+    warning("${facts['os']['family']} is not supported")
+  }
   $version        = '0.9.0.1'
   $scala_version  = '2.11'
   $install_dir    = "/opt/kafka-${scala_version}-${version}"
+  $config_dir     = '/opt/kafka/config'
+  $bin_dir        = '/opt/kafka/bin'
+  $log_dir        = '/var/log/kafka'
   $mirror_url     = 'http://mirrors.ukfast.co.uk/sites/ftp.apache.org'
-  $install_java   = true
+  $install_java   = false
   $package_dir    = '/var/tmp/kafka'
   $package_name   = undef
   $package_ensure = 'present'
+  $user           = 'kafka'
+  $group          = 'kafka'
+  $user_id        = undef
+  $group_id       = undef
+  $manage_user    = true
+  $manage_group   = true
 
-  $broker_service_install = true
-  $broker_service_ensure = 'running'
+  $service_install = true
+  $service_ensure = 'running'
+  $service_requires_zookeeper = false
+  $service_restart = true
+  $limit_nofile = 65536
 
   $broker_jmx_opts = '-Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.authenticate=false \
   -Dcom.sun.management.jmxremote.ssl=false -Dcom.sun.management.jmxremote.port=9990'
   $broker_heap_opts = '-Xmx1G -Xms1G'
-  $broker_log4j_opts = '-Dlog4j.configuration=file:/opt/kafka/config/log4j.properties'
+  $broker_log4j_opts = "-Dlog4j.configuration=file:${config_dir}/log4j.properties"
   $broker_opts = ''
 
   $mirror_jmx_opts   = '-Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.authenticate=false \
@@ -37,8 +55,6 @@ class kafka::params {
   $consumer_jmx_opts   = '-Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.authenticate=false \
   -Dcom.sun.management.jmxremote.ssl=false -Dcom.sun.management.jmxremote.port=9993'
   $consumer_log4j_opts = $broker_log4j_opts
-
-  $service_restart = true
 
   #http://kafka.apache.org/documentation.html#brokerconfigs
   $broker_config_defaults = {
@@ -118,6 +134,7 @@ class kafka::params {
     'group.max.session.timeout.ms'                  => '30000',
     'group.min.session.timeout.ms'                  => '6000',
     'inter.broker.protocol.version'                 => '0.8.2.2',
+    'log.message.format.version'                    => '0.8.2.2',
     'log.cleaner.backoff.ms'                        => '15000',
     'log.cleaner.dedupe.buffer.size'                => '134217728',
     'log.cleaner.delete.retention.ms'               => '86400000',
@@ -304,8 +321,8 @@ class kafka::params {
 
   #https://cwiki.apache.org/confluence/pages/viewpage.action?pageId=27846330
   #https://kafka.apache.org/documentation.html#basic_ops_mirror_maker
-  $consumer_config = '/opt/kafka/config/consumer-1.properties'
-  $producer_config = '/opt/kafka/config/producer.properties'
+  $consumer_config = "${config_dir}/consumer-1.properties"
+  $producer_config = "${config_dir}/producer.properties"
   $num_streams = 2
   $num_producers = 1
   $abort_on_send_failure = true
@@ -351,4 +368,6 @@ class kafka::params {
     'topic'                      => '',
     'value-serializer'           => 'kafka.serializer.DefaultEncoder',
   }
+
+  $mirror_url_regex = '^(https?:\/\/)([\da-z\.-]+)\.([a-z\.]{2,6})(:[\d]{2,5})?(\/[\w \.-]*)*\/?$'
 }
